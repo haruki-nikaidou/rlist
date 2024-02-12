@@ -1,3 +1,13 @@
 mod config_struct;
+mod load_config_file;
+
+use crate::config_loader::config_struct::{CacheSetting, DriveConfig, EncryptionConfig, InfluxConfig};
 
 pub const CONFIG_PATH: &str = "config.json";
+
+pub struct Config {
+    pub influx: Option<InfluxConfig>,
+    pub drives: Vec<DriveConfig>,
+    pub encryption: Option<EncryptionConfig>,
+    pub cache: CacheSetting,
+}

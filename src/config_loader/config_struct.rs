@@ -1,5 +1,4 @@
 use std::fmt;
-use std::fmt::Write;
 use serde::{de, Deserialize, Deserializer};
 use serde::de::{MapAccess, Visitor};
 
@@ -90,6 +89,19 @@ pub struct EncryptionConfig {
 #[derive(Debug, Deserialize)]
 pub enum EncryptMethod {
     RSA
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CacheSetting {
+    pub refresh_interval: u64,  // in seconds, default to 600 seconds
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ConfigFile {
+    pub influx: Option<InfluxConfig>,
+    pub drives: Vec<DriveConfig>,
+    pub encryption: Option<EncryptionConfig>,   // Optional, when not provided, encryption is disabled
+    pub cache: Option<CacheSetting>,            // when not provided, cache will be set to default value
 }
 
 #[cfg(test)]
