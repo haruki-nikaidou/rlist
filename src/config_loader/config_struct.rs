@@ -80,18 +80,6 @@ impl<'de> Deserialize<'de> for DriveConfig {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct EncryptionConfig {
-    pub enabled: bool,
-    pub method: EncryptMethod,
-    pub key: String
-}
-
-#[derive(Debug, Deserialize)]
-pub enum EncryptMethod {
-    RSA
-}
-
-#[derive(Debug, Deserialize)]
 pub struct CacheSetting {
     pub refresh_interval: u64,  // in seconds, default to 600 seconds
 }
@@ -100,7 +88,6 @@ pub struct CacheSetting {
 pub struct ConfigFile {
     pub influx: Option<InfluxConfig>,
     pub drives: Vec<DriveConfig>,
-    pub encryption: Option<EncryptionConfig>,   // Optional, when not provided, encryption is disabled
     pub cache: Option<CacheSetting>,            // when not provided, cache will be set to default value
 }
 

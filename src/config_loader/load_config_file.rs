@@ -13,7 +13,6 @@ pub fn load_config() -> Result<Config, Box<dyn Error>> {
             Ok(Config {
                 influx: config_file.influx,
                 drives: config_file.drives,
-                encryption: config_file.encryption,
                 cache: CacheSetting {
                     refresh_interval: 600,
                 }
@@ -23,7 +22,6 @@ pub fn load_config() -> Result<Config, Box<dyn Error>> {
             Ok(Config {
                 influx: config_file.influx,
                 drives: config_file.drives,
-                encryption: config_file.encryption,
                 cache
             })
         }
