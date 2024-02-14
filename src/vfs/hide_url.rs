@@ -79,7 +79,7 @@ fn hide_url_for_file(file: &CombinableVfsFile) -> UrlHiddenFile {
     }
 }
 
-fn hide_url_for_dir(dir: &CombinableVfsDir) -> UrlHiddenDir {
+pub fn hide_url_for_dir(dir: &CombinableVfsDir) -> UrlHiddenDir {
     let children = dir.list().into_iter().map(|entry| {
         match entry {
             VfsEntry::File(file) => UrlHiddenEntry::File(hide_url_for_file(&file)),

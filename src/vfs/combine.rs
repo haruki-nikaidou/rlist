@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use crate::vfs::{VfsBasicMeta, VfsDir, VfsEntry, VfsFile};
 use rand::Rng;
+use std::marker::Send;
 
 #[derive(Clone)]
 pub struct CombinableVfsFile {
@@ -74,6 +75,8 @@ pub struct CombinableVfsDir {
     _files: Vec<CombinableVfsFile>,
     _size: u64,
 }
+unsafe impl Send for CombinableVfsDir {}
+unsafe impl Sync for CombinableVfsDir {}
 
 impl CombinableVfsDir {
     pub fn new(name: String, sub_dirs: Vec<CombinableVfsDir>, files: Vec<CombinableVfsFile>, size: u64) -> Self {

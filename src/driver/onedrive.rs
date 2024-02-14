@@ -8,6 +8,8 @@ use tracing::warn;
 use crate::config_loader::config_struct::{OnedriveConfig};
 use crate::driver::CloudDriver;
 use crate::vfs::combine::{CombinableVfsDir, CombinableVfsFile};
+use std::marker::Send;
+use std::sync::Arc;
 
 const AUTH_URL: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 const MY_DRIVE_URL: &str = "https://graph.microsoft.com/v1.0/me/drive";
@@ -108,6 +110,7 @@ impl OneDriveFile {
         )
     }
 }
+
 
 struct OneDriveFolder {
     id: String,
@@ -248,6 +251,10 @@ impl OneDriveTreeBuilder {
 pub struct OneDriveDriver {
     root: OneDriveFolder,
 }
+
+unsafe impl Send for OneDriveDriver {}
+unsafe impl Sync for OneDriveDriver {}
+
 impl CloudDriver<OnedriveConfig> for OneDriveDriver {
     fn into_combinable(self) -> CombinableVfsDir {
         self.root.to_combinable()
