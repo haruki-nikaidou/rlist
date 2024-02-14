@@ -6,7 +6,7 @@ use crate::vfs::combine::CombinableVfsDir;
 
 pub mod onedrive;
 
-pub trait CloudDriver<Config> {
+pub trait CloudDriver<Config: Send + Sync> {
     fn into_combinable(self) -> CombinableVfsDir;
-    fn new(config: &Config) -> Pin<Box<dyn Future<Output = Result<Self, Box<dyn Error>>> + '_>> where Self: Sized;
+    fn new(config: &Config) -> Pin<Box<dyn Future<Output = Result<Self, String>> + '_ + Send>> where Self: Sized;
 }

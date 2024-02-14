@@ -10,8 +10,32 @@ pub struct CombinableVfsFile {
     _name: String,
     _size: u64,
     _last_modified: std::time::SystemTime,
-    _on_download: Arc<dyn Fn() -> String>,
+    _on_download: Arc<dyn Send + Fn() -> String>,
 }
+
+#[derive(Clone)]
+pub struct CombinableVfsDir {
+    _name: String,
+    _sub_dirs: Vec<CombinableVfsDir>,
+    _files: Vec<CombinableVfsFile>,
+    _size: u64,
+}
+
+impl CombinableVfsDir {
+    pub fn new(name: String, sub_dirs: Vec<CombinableVfsDir>, files: Vec<CombinableVfsFile>, size: u64) -> Self {
+        CombinableVfsDir {
+            _name: name,
+            _sub_dirs: sub_dirs,
+            _files: files,
+            _size: size,
+        }
+    }
+}
+
+unsafe impl Send for CombinableVfsFile {}
+unsafe impl Sync for CombinableVfsFile {}
+unsafe impl Sync for CombinableVfsDir {}
+unsafe impl Send for CombinableVfsDir {}
 
 impl CombinableVfsFile {
     fn possible_on_download(&self) -> Vec<String> {
@@ -65,25 +89,6 @@ fn get_random_selector<T: Clone>(n: usize, possibles: Vec<T>) -> impl Fn() -> T 
     move || {
         let index = rand::thread_rng().gen_range(0..n);
         possibles[index].clone()
-    }
-}
-
-#[derive(Clone)]
-pub struct CombinableVfsDir {
-    _name: String,
-    _sub_dirs: Vec<CombinableVfsDir>,
-    _files: Vec<CombinableVfsFile>,
-    _size: u64,
-}
-
-impl CombinableVfsDir {
-    pub fn new(name: String, sub_dirs: Vec<CombinableVfsDir>, files: Vec<CombinableVfsFile>, size: u64) -> Self {
-        CombinableVfsDir {
-            _name: name,
-            _sub_dirs: sub_dirs,
-            _files: files,
-            _size: size,
-        }
     }
 }
 

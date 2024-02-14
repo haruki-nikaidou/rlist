@@ -9,7 +9,6 @@ use crate::config_loader::config_struct::{OnedriveConfig};
 use crate::driver::CloudDriver;
 use crate::vfs::combine::{CombinableVfsDir, CombinableVfsFile};
 use std::marker::Send;
-use std::sync::Arc;
 
 const AUTH_URL: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 const MY_DRIVE_URL: &str = "https://graph.microsoft.com/v1.0/me/drive";
@@ -80,15 +79,18 @@ struct ResponseList {
     value: Vec<ResponseItem>,
 }
 
-async fn request_list(dir_id: String, token: &str) -> Result<ResponseList, Box<dyn Error>> {
+async fn request_list(dir_id: String, token: &str) -> Result<ResponseList, String> {
     let client = reqwest::Client::new();
     let res = client.get(request_list_url(&dir_id, token)).send().await;
     match res {
         Ok(res) => {
-            let body = res.json::<ResponseList>().await?;
+            let body = match res.json::<ResponseList>().await {
+                Ok(body) => body,
+                Err(e) => return Err("Failed to parse response".to_owned()),
+            };
             Ok(body)
         }
-        Err(e) => Err(Box::new(e))
+        Err(e) => Err("Failed to request list".to_owned())
     }
 }
 
@@ -197,7 +199,7 @@ pub struct OneDriveTreeBuilder {
 }
 
 impl OneDriveTreeBuilder {
-    fn build_tree(&self, dir_id: String, name: String, size: i64, last_modified_time: SystemTime) -> Pin<Box<dyn Future<Output = RequestTreeResult> + '_>> {
+    fn build_tree(&self, dir_id: String, name: String, size: i64, last_modified_time: SystemTime) -> Pin<Box<dyn Future<Output = RequestTreeResult> + '_ + Send>> {
         Box::pin(async move {
             let res = request_list(dir_id.clone(), &self.token).await;
             if res.is_err() {
@@ -258,12 +260,18 @@ impl CloudDriver<OnedriveConfig> for OneDriveDriver {
     }
 
     fn new(config: &OnedriveConfig) -> Pin<Box<
-        dyn Future<Output = Result<Self, Box<dyn Error>>> + '_
+        dyn Future<Output = Result<Self, String>> + '_ + Send
     >> {
         Box::pin(
         async move {
-            let access_token = fetch_access_token(config).await?;
-            let drive_id = get_my_od_id(&access_token).await?;
+            let access_token = match fetch_access_token(config).await {
+                Ok(token) => token,
+                Err(e) => return Err("Failed to fetch access token".to_owned()),
+            };
+            let drive_id = match get_my_od_id(&access_token).await {
+                Ok(id) => id,
+                Err(e) => return Err("Failed to get drive id".to_owned()),
+            };
             let tree_builder = OneDriveTreeBuilder::new(access_token, drive_id.clone());
             let root = tree_builder.build_tree(
                 "root".to_owned(),

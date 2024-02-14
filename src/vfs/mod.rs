@@ -2,7 +2,7 @@ mod path_compress;
 pub mod combine;
 pub mod hide_url;
 
-pub trait VfsBasicMeta {
+pub trait VfsBasicMeta: Send {
     fn name(&self) -> &str;
     fn size(&self) -> u64;  // in bytes
     fn last_modified(&self) -> std::time::SystemTime;
