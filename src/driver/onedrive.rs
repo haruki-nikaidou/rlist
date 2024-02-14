@@ -2,7 +2,6 @@ use std::error::Error;
 use std::future::Future;
 use std::pin::Pin;
 use serde::Deserialize;
-use tokio_stream::{self as stream, StreamExt};
 use crate::config_loader::config_struct::OnedriveConfig;
 
 const AUTH_URL: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
@@ -136,7 +135,7 @@ pub struct OneDriveTreeBuilder {
 }
 
 impl OneDriveTreeBuilder {
-    pub async fn build_tree(&self, dir_id: String, name: String, size: i64) -> Pin<Box<dyn Future<Output=RequestTreeResult> + '_>> {
+    pub fn build_tree(&self, dir_id: String, name: String, size: i64) -> Pin<Box<dyn Future<Output = RequestTreeResult> + '_>> {
         Box::pin(async move {
             let res = request_list(dir_id.clone(), &self.token).await;
             if res.is_err() {
@@ -150,7 +149,7 @@ impl OneDriveTreeBuilder {
                 let item = item.into_item();
                 match item {
                     OneDriveItem::Unknown => error_count += 1,
-                    OneDriveItem::File(file) => files.push(file),
+                    OneDriveItem::File(file) => files.push(OneDriveItem::File(file)),
                     OneDriveItem::Folder(folder) => folders.push(
                         OneDriveItem::Folder(folder)
                     ),
@@ -163,8 +162,18 @@ impl OneDriveTreeBuilder {
                 };
                 self.build_tree(folder.id, folder.name, folder.size)
             }).collect::<Vec<_>>();
-
-            todo!()
+            let folders = futures::future::join_all(folders).await;
+            let folders = folders.into_iter().map(|(folder, count)| {
+                error_count += count;
+                folder
+            }).collect::<Vec<_>>();
+            let children = files.into_iter().chain(folders.into_iter()).collect();
+            (OneDriveItem::Folder(OneDriveFolder {
+                id: dir_id,
+                name,
+                size,
+                children,
+            }), error_count)
         })
     }
 
