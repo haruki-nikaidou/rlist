@@ -1,20 +1,23 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 use crate::vfs::{VfsBasicMeta, VfsDir, VfsEntry, VfsFile};
 
-pub struct IndexedVfs{
-    root: Arc<dyn VfsDir>,
-    compressed_path: HashMap<String, VfsEntry>
+pub struct IndexedVfs<File, Dir>
+    where File: VfsFile, Dir: VfsDir<File> + Clone
+{
+    root: Dir,
+    compressed_path: HashMap<String, VfsEntry<File, Dir>>
 }
 
-pub enum TryPathResult {
+pub enum TryPathResult<File, Dir> {
     NotFound,
-    Dir(Arc<dyn VfsDir>),
-    File(Arc<dyn VfsFile>)
+    Dir(Dir),
+    File(File)
 }
 
-impl IndexedVfs {
-    pub fn new(root: Arc<dyn VfsDir>) -> IndexedVfs {
+impl<F,D> IndexedVfs<F,D>
+    where F: VfsFile + Clone, D: VfsDir<F> + Clone
+{
+    pub fn new(root: D) -> IndexedVfs<F,D> {
         let mut compressed_path = HashMap::new();
         IndexedVfs::compress_path(root.clone(), &mut compressed_path, "");
         IndexedVfs {
@@ -23,7 +26,7 @@ impl IndexedVfs {
         }
     }
 
-    fn compress_path(dir: Arc<dyn VfsDir>, compressed_path: &mut HashMap<String, VfsEntry>, path: &str) {
+    fn compress_path(dir: D, compressed_path: &mut HashMap<String, VfsEntry<F,D>>, path: &str) {
         for entry in dir.list() {
             let entry_path = format!("{}/{}", path, entry.name());
             compressed_path.insert(entry_path.clone(), entry.clone());
@@ -36,7 +39,7 @@ impl IndexedVfs {
         }
     }
 
-    pub fn try_path(&self, path: &str) -> TryPathResult {
+    pub fn try_path(&self, path: &str) -> TryPathResult<F,D> {
         match self.compressed_path.get(path) {
             None => TryPathResult::NotFound,
             Some(entry) => {

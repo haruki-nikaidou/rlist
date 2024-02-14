@@ -98,12 +98,12 @@ impl VfsBasicMeta for CombinableVfsDir {
     }
 }
 
-impl VfsDir for CombinableVfsDir {
-    fn list(&self) -> Vec<VfsEntry> {
-        let mut entries: Vec<VfsEntry> = self._sub_dirs.iter()
-            .map(|dir| VfsEntry::Dir(Arc::new(dir.clone()))).collect();
+impl VfsDir<CombinableVfsFile> for CombinableVfsDir {
+    fn list(&self) -> Vec<VfsEntry<CombinableVfsFile,CombinableVfsDir>> {
+        let mut entries: Vec<VfsEntry<_,_>> = self._sub_dirs.iter()
+            .map(|dir| VfsEntry::Dir(dir.clone())).collect();
         entries.extend(self._files.iter()
-            .map(|file| VfsEntry::File(Arc::new(file.clone()))));
+            .map(|file| VfsEntry::File(file.clone())));
         entries
     }
 }

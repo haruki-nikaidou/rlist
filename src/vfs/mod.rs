@@ -1,7 +1,6 @@
 mod path_compress;
 pub mod combine;
-
-use std::sync::Arc;
+mod hide_url;
 
 pub trait VfsBasicMeta {
     fn name(&self) -> &str;
@@ -14,12 +13,14 @@ pub trait VfsFile: VfsBasicMeta {
 }
 
 #[derive(Clone)]
-pub enum VfsEntry {
-    File(Arc<dyn VfsFile>),
-    Dir(Arc<dyn VfsDir>),
+pub enum VfsEntry<File: VfsFile, Dir: VfsDir<File> + Clone> {
+    File(File),
+    Dir(Dir),
 }
 
-impl VfsBasicMeta for VfsEntry {
+impl<F,D> VfsBasicMeta for VfsEntry<F,D>
+    where F: VfsFile, D: VfsDir<F> + Clone
+{
     fn name(&self) -> &str {
         match self {
             VfsEntry::File(file) => file.name(),
@@ -41,6 +42,6 @@ impl VfsBasicMeta for VfsEntry {
     }
 }
 
-pub trait VfsDir: VfsBasicMeta {
-    fn list(&self) -> Vec<VfsEntry>;
+pub trait VfsDir<File: VfsFile>: VfsBasicMeta {
+    fn list(&self) -> Vec<VfsEntry<File, Self>> where Self: Sized + Clone;
 }
