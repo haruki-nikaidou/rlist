@@ -1,0 +1,19 @@
+{
+  "influx": {
+    "url": "http://localhost:8086",
+    "token": "my-token",
+    "org": "my-org",
+    "bucket": "my-bucket"
+  },
+  "drives": [
+    {
+      "drive_type": "onedrive",
+      "refresh_token": "my-refresh-token",
+      "client_id": "my-client-id",
+      "client_secret": "my-client-secret"
+    }
+  ],
+  "cache": {
+    "refresh_interval": 600
+  }
+}
