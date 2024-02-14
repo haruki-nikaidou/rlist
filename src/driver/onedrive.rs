@@ -252,9 +252,6 @@ pub struct OneDriveDriver {
     root: OneDriveFolder,
 }
 
-unsafe impl Send for OneDriveDriver {}
-unsafe impl Sync for OneDriveDriver {}
-
 impl CloudDriver<OnedriveConfig> for OneDriveDriver {
     fn into_combinable(self) -> CombinableVfsDir {
         self.root.to_combinable()

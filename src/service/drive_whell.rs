@@ -64,7 +64,12 @@ impl DriveWheel {
             let mut interval = interval(Duration::from_secs(refresh_time as u64));
             loop {
                 interval.tick().await;
-                if unsafe { instance.stop_signal.get().as_ref().expect("").is_stop() } {
+                if unsafe {
+                    match instance.stop_signal.get().as_ref() {
+                        Some(signal) => signal.is_stop(),
+                        None => true
+                    }
+                } {
                     break;
                 }
                 Self::refresh(instance.full.clone(), instance.hidden_url.clone(), &instance.drive_config).await;
