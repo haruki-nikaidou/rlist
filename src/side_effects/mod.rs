@@ -1,3 +1,6 @@
+use std::future::Future;
+use std::pin::Pin;
+
 pub mod influx_download_log;
 
 pub enum SideEffectCustomConfig {
@@ -12,4 +15,4 @@ pub struct SideEffectProps {
     pub custom_config: SideEffectCustomConfig,
 }
 
-pub type SideEffect = dyn Fn(SideEffectProps) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()>>>;
+pub type SideEffect = Box<dyn Fn(SideEffectProps) -> Pin<Box<dyn Future<Output=()>>>>;

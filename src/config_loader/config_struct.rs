@@ -5,9 +5,9 @@ use serde::de::{MapAccess, Visitor};
 #[derive(Debug, Deserialize)]
 pub struct InfluxConfig {
     pub url: String,
-    pub token: String,
-    pub org: String,
-    pub bucket: String,
+    pub database: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

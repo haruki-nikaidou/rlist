@@ -1,5 +1,5 @@
 pub mod config_struct;
-mod load_config_file;
+pub mod load_config_file;
 
 use crate::config_loader::config_struct::{CacheSetting, CaptchaConfig, DriveConfig, InfluxConfig};
 

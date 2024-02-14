@@ -1,9 +1,9 @@
 {
   "influx": {
     "url": "http://localhost:8086",
-    "token": "my-token",
-    "org": "my-org",
-    "bucket": "my-bucket"
+    "bucket": "my-bucket",
+    "username": "my-username",
+    "password": "my-password"
   },
   "drives": [
     {
