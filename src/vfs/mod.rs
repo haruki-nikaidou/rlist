@@ -1,6 +1,6 @@
 mod path_compress;
 pub mod combine;
-mod hide_url;
+pub mod hide_url;
 
 pub trait VfsBasicMeta {
     fn name(&self) -> &str;

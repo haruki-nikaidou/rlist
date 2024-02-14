@@ -3,7 +3,7 @@ use std::future::Future;
 use std::pin::Pin;
 use crate::vfs::combine::CombinableVfsDir;
 
-mod onedrive;
+pub mod onedrive;
 
 pub trait CloudDriver<Config> {
     fn into_combinable(self) -> CombinableVfsDir;

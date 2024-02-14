@@ -1,5 +1,5 @@
 use std::fmt;
-use serde::{de, Deserialize, Deserializer};
+use serde::{de, Deserialize, Deserializer, Serialize};
 use serde::de::{MapAccess, Visitor};
 
 #[derive(Debug, Deserialize)]
@@ -89,6 +89,19 @@ pub struct ConfigFile {
     pub influx: Option<InfluxConfig>,
     pub drives: Vec<DriveConfig>,
     pub cache: Option<CacheSetting>,            // when not provided, cache will be set to default value
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CaptchaConfig {
+    pub enabled: bool,
+    pub service: SupportedCaptcha,
+    pub key: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub enum SupportedCaptcha {
+    #[serde(rename = "cloudflare")]
+    CloudflareTurnstile,
 }
 
 #[cfg(test)]
