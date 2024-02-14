@@ -2,7 +2,10 @@ use std::error::Error;
 use std::future::Future;
 use std::pin::Pin;
 use serde::Deserialize;
-use crate::config_loader::config_struct::OnedriveConfig;
+use tracing::warn;
+use crate::config_loader::config_struct::{OnedriveConfig};
+use crate::driver::CloudDriver;
+use crate::vfs::combine::CombinableVfsDir;
 
 const AUTH_URL: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 const MY_DRIVE_URL: &str = "https://graph.microsoft.com/v1.0/me/drive";
@@ -182,5 +185,36 @@ impl OneDriveTreeBuilder {
             token,
             drive_id,
         }
+    }
+}
+
+pub struct OneDriveDriver {
+    root: OneDriveFolder,
+}
+impl CloudDriver<OnedriveConfig> for OneDriveDriver {
+    fn into_combinable(self) -> CombinableVfsDir {
+        unimplemented!()
+    }
+
+    fn new(config: &OnedriveConfig) -> Pin<Box<
+        dyn Future<Output = Result<Self, Box<dyn Error>>> + '_
+    >> {
+        Box::pin(
+        async move {
+            let access_token = fetch_access_token(config).await?;
+            let drive_id = get_my_od_id(&access_token).await?;
+            let tree_builder = OneDriveTreeBuilder::new(access_token, drive_id.clone());
+            let root = tree_builder.build_tree("root".to_owned(), "root".to_owned(), 0).await;
+            let (root, error_count) = root;
+            if error_count > 0 {
+                warn!("{} errors occurred while building the tree {}", error_count, drive_id);
+            }
+            Ok(OneDriveDriver {
+                root: match root {
+                    OneDriveItem::Folder(folder) => folder,
+                    _ => panic!("Unexpected item type"),
+                }
+            })
+        })
     }
 }
