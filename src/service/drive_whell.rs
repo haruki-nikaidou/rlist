@@ -1,6 +1,7 @@
 use std::cell::UnsafeCell;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc};
 use std::time::Duration;
+use tokio::sync::RwLock;
 use tokio::time::interval;
 use tracing::error;
 use crate::config_loader::config_struct::DriveConfig;
@@ -43,8 +44,8 @@ impl DriveWheel {
     async fn refresh(full: Arc<RwLock<CombinableVfsDir>>, hidden_url: Arc<RwLock<UrlHiddenDir>>, drive_config: &Vec<DriveConfig>) {
         let vfs = get_vfs(drive_config).await;
         let hidden = hide_url_for_dir(&vfs);
-        *full.write().unwrap() = vfs;
-        *hidden_url.write().unwrap() = hidden;
+        *full.write().await = vfs;
+        *hidden_url.write().await = hidden;
     }
     pub async fn new(drive_config: Vec<DriveConfig>, refresh_time: i64) -> Arc<DriveWheel> {
         let vfs = get_vfs(&drive_config).await;
