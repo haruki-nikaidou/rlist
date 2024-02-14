@@ -2,9 +2,8 @@ mod path_compress;
 pub mod combine;
 
 use std::sync::Arc;
-pub use path_compress::{IndexedVfs, TryPathResult};
 
-trait VfsBasicMeta {
+pub trait VfsBasicMeta {
     fn name(&self) -> &str;
     fn size(&self) -> u64;  // in bytes
     fn last_modified(&self) -> std::time::SystemTime;

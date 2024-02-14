@@ -17,4 +17,5 @@ influxdb = { version = "0.7.1", features = ["derive"] }
 rand = "0.8.5"
 tokio-stream = "0.1.14"
 futures = "0.3.30"
+chrono = "0.4.34"
 

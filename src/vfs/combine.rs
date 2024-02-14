@@ -16,6 +16,16 @@ impl CombinableVfsFile {
     fn possible_on_download(&self) -> Vec<String> {
         self._links.clone()
     }
+    pub fn new(links: Vec<String>, name: String, size: u64, last_modified: std::time::SystemTime) -> Self {
+        let on_download = get_random_selector(links.len(), links.clone());
+        CombinableVfsFile {
+            _links: links,
+            _name: name,
+            _size: size,
+            _last_modified: last_modified,
+            _on_download: Arc::new(on_download),
+        }
+    }
 }
 
 impl VfsBasicMeta for CombinableVfsFile {
@@ -63,6 +73,17 @@ pub struct CombinableVfsDir {
     _sub_dirs: Vec<CombinableVfsDir>,
     _files: Vec<CombinableVfsFile>,
     _size: u64,
+}
+
+impl CombinableVfsDir {
+    pub fn new(name: String, sub_dirs: Vec<CombinableVfsDir>, files: Vec<CombinableVfsFile>, size: u64) -> Self {
+        CombinableVfsDir {
+            _name: name,
+            _sub_dirs: sub_dirs,
+            _files: files,
+            _size: size,
+        }
+    }
 }
 
 impl VfsBasicMeta for CombinableVfsDir {

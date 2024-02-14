@@ -1,11 +1,13 @@
 use std::error::Error;
 use std::future::Future;
 use std::pin::Pin;
+use std::time::SystemTime;
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use tracing::warn;
 use crate::config_loader::config_struct::{OnedriveConfig};
 use crate::driver::CloudDriver;
-use crate::vfs::combine::CombinableVfsDir;
+use crate::vfs::combine::{CombinableVfsDir, CombinableVfsFile};
 
 const AUTH_URL: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 const MY_DRIVE_URL: &str = "https://graph.microsoft.com/v1.0/me/drive";
@@ -67,6 +69,8 @@ struct ResponseItem {
     file_download_url: Option<String>,
     file: Option<String>,
     folder: Option<String>,
+    #[serde(rename = "lastModifiedDateTime")]
+    last_modified_date_time: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -90,14 +94,56 @@ struct OneDriveFile {
     id: String,
     name: String,
     size: i64,
+    last_modified: SystemTime,
     download_url: String,
+}
+
+impl OneDriveFile {
+    fn to_combinable(self) -> CombinableVfsFile {
+        CombinableVfsFile::new(
+            vec![self.download_url],
+            self.name,
+            self.size as u64,
+            self.last_modified
+        )
+    }
 }
 
 struct OneDriveFolder {
     id: String,
     name: String,
     size: i64,
+    last_modified: SystemTime,
     children: Vec<OneDriveItem>,
+}
+
+impl OneDriveFolder {
+    fn to_combinable(self) -> CombinableVfsDir {
+        let (files, dirs): (Vec<_>, Vec<_>) = self.children.into_iter().partition(|item| {
+            match item {
+                OneDriveItem::File(_) => true,
+                _ => false,
+            }
+        });
+        let files = files.into_iter().map(|item| {
+            match item {
+                OneDriveItem::File(file) => file.to_combinable(),
+                _ => panic!("Unexpected item type"),
+            }
+        }).collect();
+        let dirs = dirs.into_iter().map(|item| {
+            match item {
+                OneDriveItem::Folder(folder) => folder.to_combinable(),
+                _ => panic!("Unexpected item type"),
+            }
+        }).collect();
+        CombinableVfsDir::new(
+            self.name,
+            dirs,
+            files,
+            self.size as u64
+        )
+    }
 }
 
 enum OneDriveItem {
@@ -114,12 +160,22 @@ impl ResponseItem {
                 name: self.name,
                 size: self.size,
                 download_url: url,
+                last_modified: DateTime::<Utc>::from(
+                    DateTime::parse_from_rfc3339(
+                        self.last_modified_date_time.as_str()
+                    ).unwrap()
+                ).into(),
             }),
             (None, Some(_), None) => OneDriveItem::Folder(OneDriveFolder {
                 id: self.id,
                 name: self.name,
                 size: self.size,
                 children: Vec::new(),
+                last_modified: DateTime::<Utc>::from(
+                    DateTime::parse_from_rfc3339(
+                        self.last_modified_date_time.as_str()
+                    ).unwrap()
+                ).into(),
             }),
             _ => OneDriveItem::Unknown,
         }
@@ -138,7 +194,7 @@ pub struct OneDriveTreeBuilder {
 }
 
 impl OneDriveTreeBuilder {
-    pub fn build_tree(&self, dir_id: String, name: String, size: i64) -> Pin<Box<dyn Future<Output = RequestTreeResult> + '_>> {
+    fn build_tree(&self, dir_id: String, name: String, size: i64, last_modified_time: SystemTime) -> Pin<Box<dyn Future<Output = RequestTreeResult> + '_>> {
         Box::pin(async move {
             let res = request_list(dir_id.clone(), &self.token).await;
             if res.is_err() {
@@ -163,7 +219,7 @@ impl OneDriveTreeBuilder {
                     OneDriveItem::Folder(folder) => folder,
                     _ => panic!("Unexpected item type"),
                 };
-                self.build_tree(folder.id, folder.name, folder.size)
+                self.build_tree(folder.id, folder.name, folder.size, folder.last_modified)
             }).collect::<Vec<_>>();
             let folders = futures::future::join_all(folders).await;
             let folders = folders.into_iter().map(|(folder, count)| {
@@ -175,6 +231,7 @@ impl OneDriveTreeBuilder {
                 id: dir_id,
                 name,
                 size,
+                last_modified: last_modified_time,
                 children,
             }), error_count)
         })
@@ -193,7 +250,7 @@ pub struct OneDriveDriver {
 }
 impl CloudDriver<OnedriveConfig> for OneDriveDriver {
     fn into_combinable(self) -> CombinableVfsDir {
-        unimplemented!()
+        self.root.to_combinable()
     }
 
     fn new(config: &OnedriveConfig) -> Pin<Box<
@@ -204,7 +261,12 @@ impl CloudDriver<OnedriveConfig> for OneDriveDriver {
             let access_token = fetch_access_token(config).await?;
             let drive_id = get_my_od_id(&access_token).await?;
             let tree_builder = OneDriveTreeBuilder::new(access_token, drive_id.clone());
-            let root = tree_builder.build_tree("root".to_owned(), "root".to_owned(), 0).await;
+            let root = tree_builder.build_tree(
+                "root".to_owned(),
+                "root".to_owned(),
+                0,
+                SystemTime::now()
+            ).await;
             let (root, error_count) = root;
             if error_count > 0 {
                 warn!("{} errors occurred while building the tree {}", error_count, drive_id);
