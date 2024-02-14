@@ -1,4 +1,4 @@
-mod influx_download_log;
+pub mod influx_download_log;
 
 pub enum SideEffectCustomConfig {
     Influx(influx_download_log::InfluxProps),

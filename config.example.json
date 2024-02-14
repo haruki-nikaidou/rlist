@@ -15,5 +15,10 @@
   ],
   "cache": {
     "refresh_interval": 600
+  },
+  "captcha": {
+    "enabled": true,
+    "service": "cloudflare",
+    "key": "1x0000000000000000000000000000000AA"
   }
 }

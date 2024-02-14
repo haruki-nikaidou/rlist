@@ -79,6 +79,14 @@ impl DriveWheel {
     }
 }
 
+impl Drop for DriveWheel {
+    fn drop(&mut self) {
+        unsafe {
+            self.stop_signal.get().as_mut().map(|signal| signal.stop());
+        }
+    }
+}
+
 struct StopSignal {
     stop: bool
 }

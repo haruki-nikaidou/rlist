@@ -89,6 +89,7 @@ pub struct ConfigFile {
     pub influx: Option<InfluxConfig>,
     pub drives: Vec<DriveConfig>,
     pub cache: Option<CacheSetting>,            // when not provided, cache will be set to default value
+    pub captcha: Option<CaptchaConfig>,
 }
 
 #[derive(Debug, Deserialize)]

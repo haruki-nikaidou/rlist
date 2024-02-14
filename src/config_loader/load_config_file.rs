@@ -15,14 +15,16 @@ pub fn load_config() -> Result<Config, Box<dyn Error>> {
                 drives: config_file.drives,
                 cache: CacheSetting {
                     refresh_interval: 600,
-                }
+                },
+                captcha: config_file.captcha,
             })
         },
         Some(cache) => {
             Ok(Config {
                 influx: config_file.influx,
                 drives: config_file.drives,
-                cache
+                cache,
+                captcha: config_file.captcha,
             })
         }
     }
