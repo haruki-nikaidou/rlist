@@ -1,4 +1,4 @@
-mod path_compress;
+pub mod path_compress;
 pub mod combine;
 pub mod hide_url;
 

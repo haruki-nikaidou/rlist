@@ -7,11 +7,14 @@ use tracing::error;
 use crate::config_loader::config_struct::DriveConfig;
 use crate::driver::CloudDriver;
 use crate::driver::onedrive::{OneDriveDriver};
-use crate::vfs::combine::{CombinableVfsDir, combine_vfs_dirs};
+use crate::vfs::combine::{CombinableVfsDir, CombinableVfsFile, combine_vfs_dirs};
 use crate::vfs::hide_url::{hide_url_for_dir, UrlHiddenDir};
+use crate::vfs::path_compress::IndexedVfs;
 
+
+type PathMap = Arc<RwLock<IndexedVfs<CombinableVfsFile, CombinableVfsDir>>>;
 pub struct DriveWheel {
-    pub full: Arc<RwLock<CombinableVfsDir>>,
+    pub path_map: PathMap,
     pub hidden_url: Arc<RwLock<UrlHiddenDir>>,
     drive_config: Vec<DriveConfig>,
     stop_signal: UnsafeCell<StopSignal>,
@@ -41,27 +44,29 @@ async fn get_vfs(drive_config: &Vec<DriveConfig>) -> CombinableVfsDir {
 }
 
 impl DriveWheel {
-    async fn refresh(full: Arc<RwLock<CombinableVfsDir>>, hidden_url: Arc<RwLock<UrlHiddenDir>>, drive_config: &Vec<DriveConfig>) {
+    async fn refresh(path_map: PathMap, hidden_url: Arc<RwLock<UrlHiddenDir>>, drive_config: &Vec<DriveConfig>) {
         let vfs = get_vfs(drive_config).await;
         let hidden = hide_url_for_dir(&vfs);
-        *full.write().await = vfs;
+        let compressed_path = IndexedVfs::new(vfs);
+        *path_map.write().await = compressed_path;
         *hidden_url.write().await = hidden;
     }
-    pub async fn new(drive_config: Vec<DriveConfig>, refresh_time: i64) -> Arc<DriveWheel> {
+    pub async fn new(drive_config: Vec<DriveConfig>, refresh_time: u64) -> Arc<DriveWheel> {
         let vfs = get_vfs(&drive_config).await;
         let hidden = hide_url_for_dir(&vfs);
-        let full = Arc::new(RwLock::new(vfs));
+        let compressed_path = IndexedVfs::new(vfs);
+        let compressed_path = Arc::new(RwLock::new(compressed_path));
         let hidden_url = Arc::new(RwLock::new(hidden));
         let stop_signal = StopSignal::new();
         let instance = Arc::new(DriveWheel {
-            full,
+            path_map: compressed_path.clone(),
             hidden_url,
             drive_config,
             stop_signal,
         });
         let instance_clone = instance.clone();
         tokio::spawn(async move {
-            let mut interval = interval(Duration::from_secs(refresh_time as u64));
+            let mut interval = interval(Duration::from_secs(refresh_time));
             loop {
                 interval.tick().await;
                 if unsafe {
@@ -72,7 +77,7 @@ impl DriveWheel {
                 } {
                     break;
                 }
-                Self::refresh(instance.full.clone(), instance.hidden_url.clone(), &instance.drive_config).await;
+                Self::refresh(instance.path_map.clone(), instance.hidden_url.clone(), &instance.drive_config).await;
             }
         });
         return instance_clone;

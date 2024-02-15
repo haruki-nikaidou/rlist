@@ -1,2 +1,2 @@
-mod captcha;
-mod drive_whell;
+pub mod captcha;
+pub mod drive_whell;
