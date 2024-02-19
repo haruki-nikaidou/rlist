@@ -1,5 +1,6 @@
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 
 pub mod influx_download_log;
 
@@ -15,4 +16,4 @@ pub struct SideEffectProps {
     pub custom_config: SideEffectCustomConfig,
 }
 
-pub type SideEffect = Box<dyn Fn(SideEffectProps) -> Pin<Box<dyn Future<Output=()>>>>;
+pub type SideEffect = Arc<dyn Fn(SideEffectProps) -> Pin<Box<dyn Future<Output=()>>>>;

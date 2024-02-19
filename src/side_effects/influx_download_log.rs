@@ -46,7 +46,7 @@ pub fn load_log_effect(config: Option<InfluxConfig>) -> SideEffect {
     match config {
         Some(config) => {
             let client = Arc::new(connect_to_influx(config));
-            Box::new(
+            Arc::new(
                 move |props| {
                     Box::pin(write_log(SideEffectProps{
                         request_ip: props.request_ip,
@@ -60,7 +60,7 @@ pub fn load_log_effect(config: Option<InfluxConfig>) -> SideEffect {
             )
         }
         None => {
-            Box::new(
+            Arc::new(
                 |props| {
                     Box::pin(empty_log_effect(props))
                 }
