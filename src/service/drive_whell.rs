@@ -5,7 +5,7 @@ use tokio::time::interval;
 use tracing::error;
 use crate::config_loader::config_struct::DriveConfig;
 use crate::driver::CloudDriver;
-use crate::driver::onedrive::{OneDriveDriver};
+use crate::driver::{OneDriveDriver};
 use crate::vfs::combine::{CombinableVfsDir, CombinableVfsFile, combine_vfs_dirs};
 use crate::vfs::hide_url::{hide_url_for_dir, UrlHiddenDir};
 use crate::vfs::path_compress::IndexedVfs;

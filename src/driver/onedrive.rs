@@ -60,6 +60,7 @@ struct AccessTokenResponse {
 }
 
 #[derive(Debug, Deserialize)]
+/// Response json when request `MY_DRIVE_URL`.
 struct MyDrive {
     id: String,
 }
@@ -135,6 +136,7 @@ async fn request_list(drive_id: &str, dir_id: &str, token: &str) -> Result<Respo
     }
 }
 
+/// internal struct to represent a file in onedrive
 struct OneDriveFile {
     #[allow(unused)]
     id: String,
@@ -143,7 +145,6 @@ struct OneDriveFile {
     last_modified: SystemTime,
     download_url: String,
 }
-
 impl OneDriveFile {
     fn to_combinable(self) -> CombinableVfsFile {
         CombinableVfsFile::new(
@@ -155,7 +156,7 @@ impl OneDriveFile {
     }
 }
 
-
+/// internal struct to represent a folder in onedrive
 struct OneDriveFolder {
     id: String,
     name: String,
@@ -163,7 +164,6 @@ struct OneDriveFolder {
     last_modified: SystemTime,
     children: Vec<OneDriveItem>,
 }
-
 impl OneDriveFolder {
     fn to_combinable(self) -> CombinableVfsDir {
         let (files, dirs): (Vec<_>, Vec<_>) = self.children.into_iter().partition(|item| {
@@ -193,6 +193,7 @@ impl OneDriveFolder {
     }
 }
 
+/// internal enum to represent a file or a folder in onedrive
 enum OneDriveItem {
     File(OneDriveFile),
     Folder(OneDriveFolder),
@@ -200,6 +201,7 @@ enum OneDriveItem {
 }
 
 impl ResponseItem {
+    /// convert response item into `OneDriveItem`
     pub fn into_item(self) -> OneDriveItem {
         match (self.file, self.folder, self.file_download_url) {
             (Some(_), None, Some(url)) => OneDriveItem::File(OneDriveFile {
@@ -235,13 +237,13 @@ fn request_list_url(dir_id: &str, drive_id: &str) -> String {
 
 type RequestTreeResult = (OneDriveItem, i64);   // 1st: root, 2nd: error count
 
+/// internal struct to build the tree of the onedrive
 struct OneDriveTreeBuilder {
     token: String,
     drive_id: String,
 }
 
 impl OneDriveTreeBuilder {
-
     fn build_tree(&self, dir_id: String, name: String, size: i64, last_modified_time: SystemTime) -> Pin<Box<dyn Future<Output=RequestTreeResult> + '_ + Send>> {
         // When use recursive async function, return type must be `Pin<Box<dyn Future<Output=...> + '_ + Send>>`.
         Box::pin(async move {
