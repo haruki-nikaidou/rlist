@@ -7,7 +7,6 @@ use crate::side_effects::{SideEffect, SideEffectProps};
 type WriteFunction = Arc<dyn Fn(SideEffectProps) -> Pin<Box<dyn std::future::Future<Output=()> + Send>> + Send + Sync>;
 
 pub struct LogEffect {
-    client: Option<Arc<Client>>,
     write_fn: WriteFunction
 }
 
@@ -45,7 +44,6 @@ impl SideEffect<Option<InfluxConfig>> for LogEffect {
             Some(config) => Some(Arc::new(connect_to_influx(config))),
             None => None,
         };
-        let client_clone = client.clone();
         let write_fn: WriteFunction = if client.is_none() {
             Arc::new(|_| Box::pin(async {}))
         } else {
@@ -59,7 +57,6 @@ impl SideEffect<Option<InfluxConfig>> for LogEffect {
             })
         };
         LogEffect {
-            client: client_clone,
             write_fn,
         }
     }

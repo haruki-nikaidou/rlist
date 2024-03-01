@@ -86,11 +86,11 @@ async fn request_list(dir_id: String, token: &str) -> Result<ResponseList, Strin
         Ok(res) => {
             let body = match res.json::<ResponseList>().await {
                 Ok(body) => body,
-                Err(e) => return Err("Failed to parse response".to_owned()),
+                Err(_) => return Err("Failed to parse response".to_owned()),
             };
             Ok(body)
         }
-        Err(e) => Err("Failed to request list".to_owned())
+        Err(_) => Err("Failed to request list".to_owned())
     }
 }
 
@@ -266,11 +266,11 @@ impl CloudDriver<OnedriveConfig> for OneDriveDriver {
         async move {
             let access_token = match fetch_access_token(config).await {
                 Ok(token) => token,
-                Err(e) => return Err("Failed to fetch access token".to_owned()),
+                Err(_) => return Err("Failed to fetch access token".to_owned()),
             };
             let drive_id = match get_my_od_id(&access_token).await {
                 Ok(id) => id,
-                Err(e) => return Err("Failed to get drive id".to_owned()),
+                Err(_) => return Err("Failed to get drive id".to_owned()),
             };
             let tree_builder = OneDriveTreeBuilder::new(access_token, drive_id.clone());
             let root = tree_builder.build_tree(

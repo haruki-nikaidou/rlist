@@ -1,7 +1,6 @@
 use std::cell::UnsafeCell;
 use std::sync::{Arc};
 use std::time::Duration;
-use tokio::sync::RwLock;
 use tokio::time::interval;
 use tracing::error;
 use crate::config_loader::config_struct::DriveConfig;

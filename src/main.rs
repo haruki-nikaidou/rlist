@@ -3,6 +3,8 @@ use actix_web::{App, HttpServer, web};
 use crate::config_loader::{Config, load_config_file};
 use crate::service::captcha::{load_captcha, Verify};
 use crate::service::drive_whell::DriveWheel;
+use crate::side_effects::influx_download_log::LogEffect;
+use crate::side_effects::SideEffect;
 
 mod config_loader;
 mod vfs;
@@ -15,6 +17,7 @@ mod request_handler;
 struct State {
     captcha: Arc<dyn Verify>,
     wheel: Arc<DriveWheel>,
+    log: Arc<LogEffect>
 }
 
 #[actix_web::main]
@@ -23,9 +26,11 @@ async fn main() {
     let refresh_interval = cache.refresh_interval;
     let captcha = load_captcha(captcha);
     let wheel = DriveWheel::new(drives, refresh_interval).await;
+    let log = Arc::new(LogEffect::new(influx));
     let state = Arc::new(State {
         captcha,
         wheel,
+        log
     });
     HttpServer::new(move || {
         App::new()

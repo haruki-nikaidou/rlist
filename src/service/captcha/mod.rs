@@ -1,5 +1,3 @@
-use std::future::Future;
-use std::pin::Pin;
 use std::sync::Arc;
 use crate::config_loader::config_struct::CaptchaConfig;
 

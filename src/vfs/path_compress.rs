@@ -4,7 +4,6 @@ use crate::vfs::{VfsBasicMeta, VfsDir, VfsEntry, VfsFile};
 pub struct IndexedVfs<File, Dir>
     where File: VfsFile, Dir: VfsDir<File> + Clone
 {
-    root: Dir,
     compressed_path: HashMap<String, VfsEntry<File, Dir>>
 }
 
@@ -21,7 +20,6 @@ impl<F,D> IndexedVfs<F,D>
         let mut compressed_path = HashMap::new();
         IndexedVfs::compress_path(root.clone(), &mut compressed_path, "");
         IndexedVfs {
-            root,
             compressed_path
         }
     }
