@@ -31,38 +31,35 @@ struct ApiForm {
     idempotency_key: String,
 }
 
+#[async_trait::async_trait]
 impl Verify for CloudflareTurnstile {
-    fn verify<'a>(&'a self, token: &'a str, ip: &'a str) -> Pin<Box<dyn Future<Output=bool> + Send + '_>> {
-        Box::pin(
-            async {
-                let form = ApiForm {
-                    secret: self.secret.clone(),
-                    response: token.to_string(),
-                    remoteip: ip.to_string(),
-                    idempotency_key: Uuid::new_v4().to_string(),
-                };
-                let client = reqwest::Client::new();
-                let response = client.post(API_URL)
-                    .form(&form)
-                    .send()
-                    .await;
+    async fn verify<'a>(&'a self, token: &'a str, ip: &'a str) -> bool {
+        let form = ApiForm {
+            secret: self.secret.clone(),
+            response: token.to_string(),
+            remoteip: ip.to_string(),
+            idempotency_key: Uuid::new_v4().to_string(),
+        };
+        let client = reqwest::Client::new();
+        let response = client.post(API_URL)
+            .form(&form)
+            .send()
+            .await;
+        match response {
+            Ok(response) => {
+                let response = response.json::<Response>().await;
                 match response {
                     Ok(response) => {
-                        let response = response.json::<Response>().await;
-                        match response {
-                            Ok(response) => {
-                                response.success
-                            }
-                            Err(_) => {
-                                return false;
-                            }
-                        }
+                        response.success
                     }
                     Err(_) => {
                         return false;
                     }
                 }
             }
-        )
+            Err(_) => {
+                return false;
+            }
+        }
     }
 }

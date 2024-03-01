@@ -1,22 +1,20 @@
+use std::pin::Pin;
 use std::sync::Arc;
 use influxdb::{Client, WriteQuery, Timestamp};
 use crate::config_loader::config_struct::InfluxConfig;
-use crate::side_effects::{SideEffect, SideEffectCustomConfig, SideEffectProps};
+use crate::side_effects::{SideEffect, SideEffectProps};
 
-pub struct InfluxProps {
-    client: Arc<Client>,
+type WriteFunction = Arc<dyn Fn(SideEffectProps) -> Pin<Box<dyn std::future::Future<Output=()> + Send>> + Send + Sync>;
+
+pub struct LogEffect {
+    client: Option<Arc<Client>>,
+    write_fn: WriteFunction
 }
 
-async fn write_log(props: SideEffectProps) {
+async fn log_with_influx(props: SideEffectProps, client: Arc<Client>) {
     let user_ip = props.request_ip;
     let user_agent = props.user_agent;
     let file_name = props.file_name;
-    let InfluxProps { client } = match props.custom_config {
-        SideEffectCustomConfig::Influx(influx_props) => {
-            influx_props
-        }
-        _ => return
-    };
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
     let write_query = WriteQuery::new(Timestamp::Seconds(now as u128), "download_log")
         .add_field("user_ip", user_ip)
@@ -40,31 +38,33 @@ fn connect_to_influx(config: InfluxConfig) -> Client {
     }
 }
 
-async fn empty_log_effect(_props: SideEffectProps) {}
+#[async_trait::async_trait]
+impl SideEffect<Option<InfluxConfig>> for LogEffect {
+    fn new(config: Option<InfluxConfig>) -> Self {
+        let client = match config {
+            Some(config) => Some(Arc::new(connect_to_influx(config))),
+            None => None,
+        };
+        let client_clone = client.clone();
+        let write_fn: WriteFunction = if client.is_none() {
+            Arc::new(|_| Box::pin(async {}))
+        } else {
+            Arc::new(move|props| {
+                let client_clone = client.clone().unwrap();
+                Box::pin(
+                    async move {
+                        log_with_influx(props, client_clone.clone()).await;
+                    }
+                )
+            })
+        };
+        LogEffect {
+            client: client_clone,
+            write_fn,
+        }
+    }
 
-pub fn load_log_effect(config: Option<InfluxConfig>) -> SideEffect {
-    match config {
-        Some(config) => {
-            let client = Arc::new(connect_to_influx(config));
-            Arc::new(
-                move |props| {
-                    Box::pin(write_log(SideEffectProps{
-                        request_ip: props.request_ip,
-                        user_agent: props.user_agent,
-                        file_name: props.file_name,
-                        custom_config: SideEffectCustomConfig::Influx(InfluxProps {
-                            client: client.clone(),
-                        }),
-                    }))
-                }
-            )
-        }
-        None => {
-            Arc::new(
-                |props| {
-                    Box::pin(empty_log_effect(props))
-                }
-            )
-        }
+    async fn do_effect(&self, props: SideEffectProps) {
+        (self.write_fn)(props).await;
     }
 }

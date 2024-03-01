@@ -12,10 +12,10 @@ use crate::vfs::hide_url::{hide_url_for_dir, UrlHiddenDir};
 use crate::vfs::path_compress::IndexedVfs;
 
 
-type PathMap = Arc<RwLock<IndexedVfs<CombinableVfsFile, CombinableVfsDir>>>;
+type PathMap = IndexedVfs<CombinableVfsFile, CombinableVfsDir>;
 pub struct DriveWheel {
-    pub path_map: PathMap,
-    pub hidden_url: Arc<RwLock<UrlHiddenDir>>,
+    pub path_map: UnsafeCell<Arc<PathMap>>,
+    pub hidden_url: UnsafeCell<Arc<UrlHiddenDir>>,
     drive_config: Vec<DriveConfig>,
     stop_signal: UnsafeCell<StopSignal>,
 }
@@ -44,23 +44,30 @@ async fn get_vfs(drive_config: &Vec<DriveConfig>) -> CombinableVfsDir {
 }
 
 impl DriveWheel {
-    async fn refresh(path_map: PathMap, hidden_url: Arc<RwLock<UrlHiddenDir>>, drive_config: &Vec<DriveConfig>) {
+    async fn new_data(drive_config: &Vec<DriveConfig>) -> (Arc<PathMap>, Arc<UrlHiddenDir>) {
         let vfs = get_vfs(drive_config).await;
         let hidden = hide_url_for_dir(&vfs);
         let compressed_path = IndexedVfs::new(vfs);
-        *path_map.write().await = compressed_path;
-        *hidden_url.write().await = hidden;
+        return (
+            Arc::new(compressed_path),
+            Arc::new(hidden)
+        );
+    }
+    fn refresh(&self, data: (Arc<PathMap>, Arc<UrlHiddenDir>)) {
+        let (_path_map, _hidden_url) = data;
+        let path_map = self.path_map.get();
+        let hidden_url = self.hidden_url.get();
+        unsafe {
+            *path_map = _path_map;
+            *hidden_url = _hidden_url;
+        }
     }
     pub async fn new(drive_config: Vec<DriveConfig>, refresh_time: u64) -> Arc<DriveWheel> {
-        let vfs = get_vfs(&drive_config).await;
-        let hidden = hide_url_for_dir(&vfs);
-        let compressed_path = IndexedVfs::new(vfs);
-        let compressed_path = Arc::new(RwLock::new(compressed_path));
-        let hidden_url = Arc::new(RwLock::new(hidden));
+        let (compressed_path, hidden_url) = Self::new_data(&drive_config).await;
         let stop_signal = StopSignal::new();
         let instance = Arc::new(DriveWheel {
-            path_map: compressed_path.clone(),
-            hidden_url,
+            path_map: UnsafeCell::new(compressed_path.clone()),
+            hidden_url: UnsafeCell::new(hidden_url.clone()),
             drive_config,
             stop_signal,
         });
@@ -70,17 +77,18 @@ impl DriveWheel {
             loop {
                 interval.tick().await;
                 if unsafe {
-                    match instance.stop_signal.get().as_ref() {
+                    match instance_clone.stop_signal.get().as_ref() {
                         Some(signal) => signal.is_stop(),
                         None => true
                     }
                 } {
                     break;
                 }
-                Self::refresh(instance.path_map.clone(), instance.hidden_url.clone(), &instance.drive_config).await;
+                let data = Self::new_data(&instance_clone.drive_config).await;
+                instance_clone.refresh(data);
             }
         });
-        return instance_clone;
+        return instance;
     }
 }
 

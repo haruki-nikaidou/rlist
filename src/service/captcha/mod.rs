@@ -6,8 +6,9 @@ use crate::config_loader::config_struct::CaptchaConfig;
 pub mod cloudflare_turnstile;
 pub mod no_captcha;
 
-pub trait Verify {
-    fn verify<'a>(&'a self, token: &'a str, ip: &'a str) -> Pin<Box<dyn Future<Output = bool> + Send + '_>>;
+#[async_trait::async_trait]
+pub trait Verify: Send + Sync {
+    async fn verify<'a>(&'a self, token: &'a str, ip: &'a str) -> bool;
 }
 
 pub fn load_captcha(captcha_config: Option<CaptchaConfig>) -> Arc<dyn Verify> {

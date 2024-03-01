@@ -18,6 +18,7 @@ rand = "0.8.5"
 tokio-stream = "0.1.14"
 futures = "0.3.30"
 chrono = "0.4.34"
+async-trait = "0.1.77"
 
 [dependencies.uuid]
 version = "1.7.0"
