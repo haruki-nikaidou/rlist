@@ -30,6 +30,7 @@ async fn main() {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(state.clone()))
+            .service(request_handler::get_file_tree)
     })
         .bind(("127.0.0.1", 8080)).expect("Can not bind to port 8080")
         .run()

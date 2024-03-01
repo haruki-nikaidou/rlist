@@ -14,8 +14,8 @@ use crate::vfs::path_compress::IndexedVfs;
 
 type PathMap = IndexedVfs<CombinableVfsFile, CombinableVfsDir>;
 pub struct DriveWheel {
-    pub path_map: UnsafeCell<Arc<PathMap>>,
-    pub hidden_url: UnsafeCell<Arc<UrlHiddenDir>>,
+    path_map: UnsafeCell<Arc<PathMap>>,
+    hidden_url: UnsafeCell<Arc<UrlHiddenDir>>,
     drive_config: Vec<DriveConfig>,
     stop_signal: UnsafeCell<StopSignal>,
 }
@@ -89,6 +89,16 @@ impl DriveWheel {
             }
         });
         return instance;
+    }
+    pub fn get_path_map(&self) -> Arc<PathMap> {
+        unsafe {
+            (&*self.path_map.get()).clone()
+        }
+    }
+    pub fn get_hidden_url(&self) -> Arc<UrlHiddenDir> {
+        unsafe {
+            (&*self.hidden_url.get()).clone()
+        }
     }
 }
 
