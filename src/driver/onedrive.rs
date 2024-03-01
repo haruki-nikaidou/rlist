@@ -48,6 +48,7 @@ impl CloudDriver<OnedriveConfig> for OneDriveDriver {
 const AUTH_URL: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 const MY_DRIVE_URL: &str = "https://graph.microsoft.com/v1.0/me/drive";
 
+#[allow(unused)]
 #[derive(Debug, Deserialize)]
 /// The response json when request `AUTH_URL`.
 struct AccessTokenResponse {
@@ -117,9 +118,11 @@ struct ResponseList {
     value: Vec<ResponseItem>,
 }
 
-async fn request_list(dir_id: String, token: &str) -> Result<ResponseList, String> {
+async fn request_list(drive_id: &str, dir_id: &str, token: &str) -> Result<ResponseList, String> {
     let client = reqwest::Client::new();
-    let res = client.get(request_list_url(&dir_id, token)).send().await;
+    let res = client.get(request_list_url(dir_id, drive_id))
+        .header("Authorization", format!("Bearer {}", token))
+        .send().await;
     match res {
         Ok(res) => {
             let body = match res.json::<ResponseList>().await {
@@ -133,6 +136,7 @@ async fn request_list(dir_id: String, token: &str) -> Result<ResponseList, Strin
 }
 
 struct OneDriveFile {
+    #[allow(unused)]
     id: String,
     name: String,
     size: i64,
@@ -242,7 +246,7 @@ impl OneDriveTreeBuilder {
         // When use recursive async function, return type must be `Pin<Box<dyn Future<Output=...> + '_ + Send>>`.
         Box::pin(async move {
             // request the graphql api
-            let res = request_list(dir_id.clone(), &self.token).await;
+            let res = request_list(dir_id.as_str(), self.drive_id.as_str(), self.token.as_str()).await;
             if res.is_err() {
                 return (OneDriveItem::Unknown, 1);
             }
