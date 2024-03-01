@@ -1,10 +1,14 @@
-use std::future::Future;
-use std::pin::Pin;
 use crate::vfs::combine::CombinableVfsDir;
 
-pub mod onedrive;
+/// # OneDrive Driver
+/// To use onedrive as a VFS, you need to provide a refresh token, a client id and a client secret. (*refer to `OnedriveConfig` in `config_struct.rs`*)
+pub(crate) mod onedrive;
 
+/// # Cloud Driver
+/// The cloud driver is a driver that can be used to access a cloud storage service, then use the cloud storage service as a virtual file system(VFS).
+#[async_trait::async_trait]
 pub trait CloudDriver<Config: Send + Sync> {
+    /// Convert the driver into VFS directory.
     fn into_combinable(self) -> CombinableVfsDir;
-    fn new(config: &Config) -> Pin<Box<dyn Future<Output = Result<Self, String>> + '_ + Send>> where Self: Sized;
+    async fn new(config: &Config) -> Result<Self, String> where Self: Sized;
 }

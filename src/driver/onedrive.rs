@@ -10,10 +10,46 @@ use crate::driver::CloudDriver;
 use crate::vfs::combine::{CombinableVfsDir, CombinableVfsFile};
 use std::marker::Send;
 
+#[async_trait::async_trait]
+impl CloudDriver<OnedriveConfig> for OneDriveDriver {
+    fn into_combinable(self) -> CombinableVfsDir {
+        self.root.to_combinable()
+    }
+
+    async fn new(config: &OnedriveConfig) -> Result<Self, String> {
+        let access_token = match fetch_access_token(config).await {
+            Ok(token) => token,
+            Err(_) => return Err("Failed to fetch access token".to_owned()),
+        };
+        let drive_id = match get_my_od_id(&access_token).await {
+            Ok(id) => id,
+            Err(_) => return Err("Failed to get drive id".to_owned()),
+        };
+        let tree_builder = OneDriveTreeBuilder::new(access_token, drive_id.clone());
+        let root = tree_builder.build_tree(
+            "root".to_owned(),
+            "root".to_owned(),
+            0,
+            SystemTime::now(),
+        ).await;
+        let (root, error_count) = root;
+        if error_count > 0 {
+            warn!("{} errors occurred while building the tree {}", error_count, drive_id);
+        }
+        Ok(OneDriveDriver {
+            root: match root {
+                OneDriveItem::Folder(folder) => folder,
+                _ => panic!("Unexpected item type"),
+            }
+        })
+    }
+}
+
 const AUTH_URL: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 const MY_DRIVE_URL: &str = "https://graph.microsoft.com/v1.0/me/drive";
 
 #[derive(Debug, Deserialize)]
+/// The response json when request `AUTH_URL`.
 struct AccessTokenResponse {
     access_token: String,
     token_type: String,
@@ -27,7 +63,7 @@ struct MyDrive {
     id: String,
 }
 
-pub async fn fetch_access_token(config: &OnedriveConfig) -> Result<String, Box<dyn Error>> {
+async fn fetch_access_token(config: &OnedriveConfig) -> Result<String, Box<dyn Error>> {
     let client = reqwest::Client::new();
     let res = client.post(AUTH_URL)
         .form(&[
@@ -47,7 +83,7 @@ pub async fn fetch_access_token(config: &OnedriveConfig) -> Result<String, Box<d
     }
 }
 
-pub async fn get_my_od_id(access_token: &str) -> Result<String, Box<dyn Error>> {
+async fn get_my_od_id(access_token: &str) -> Result<String, Box<dyn Error>> {
     let client = reqwest::Client::new();
     let res = client.get(MY_DRIVE_URL)
         .header("Authorization", format!("Bearer {}", access_token))
@@ -62,6 +98,7 @@ pub async fn get_my_od_id(access_token: &str) -> Result<String, Box<dyn Error>> 
 }
 
 #[derive(Debug, Deserialize)]
+/// the file or folder item in the response json.
 struct ResponseItem {
     id: String,
     name: String,
@@ -75,6 +112,7 @@ struct ResponseItem {
 }
 
 #[derive(Debug, Deserialize)]
+/// the response json when request the graphql api.
 struct ResponseList {
     value: Vec<ResponseItem>,
 }
@@ -108,7 +146,7 @@ impl OneDriveFile {
             vec![self.download_url],
             self.name,
             self.size as u64,
-            self.last_modified
+            self.last_modified,
         )
     }
 }
@@ -146,7 +184,7 @@ impl OneDriveFolder {
             self.name,
             dirs,
             files,
-            self.size as u64
+            self.size as u64,
         )
     }
 }
@@ -193,22 +231,29 @@ fn request_list_url(dir_id: &str, drive_id: &str) -> String {
 
 type RequestTreeResult = (OneDriveItem, i64);   // 1st: root, 2nd: error count
 
-pub struct OneDriveTreeBuilder {
+struct OneDriveTreeBuilder {
     token: String,
     drive_id: String,
 }
 
 impl OneDriveTreeBuilder {
-    fn build_tree(&self, dir_id: String, name: String, size: i64, last_modified_time: SystemTime) -> Pin<Box<dyn Future<Output = RequestTreeResult> + '_ + Send>> {
+
+    fn build_tree(&self, dir_id: String, name: String, size: i64, last_modified_time: SystemTime) -> Pin<Box<dyn Future<Output=RequestTreeResult> + '_ + Send>> {
+        // When use recursive async function, return type must be `Pin<Box<dyn Future<Output=...> + '_ + Send>>`.
         Box::pin(async move {
+            // request the graphql api
             let res = request_list(dir_id.clone(), &self.token).await;
             if res.is_err() {
                 return (OneDriveItem::Unknown, 1);
             }
             let list = res.unwrap().value;
+
+            // initial error count and two vectors to store files and folders
             let mut error_count = 0;
             let mut folders = Vec::new();
             let mut files = Vec::new();
+
+            // divide the items in the list into files and folders
             list.into_iter().for_each(|item| {
                 let item = item.into_item();
                 match item {
@@ -219,6 +264,8 @@ impl OneDriveTreeBuilder {
                     ),
                 }
             });
+
+            // graphql api will only return the id of the folders, so we need to build the tree recursively
             let folders = folders.into_iter().map(|folder| {
                 let folder = match folder {
                     OneDriveItem::Folder(folder) => folder,
@@ -226,12 +273,19 @@ impl OneDriveTreeBuilder {
                 };
                 self.build_tree(folder.id, folder.name, folder.size, folder.last_modified)
             }).collect::<Vec<_>>();
+
+            // wait for all the folders to be built
             let folders = futures::future::join_all(folders).await;
+            // collect error count
             let folders = folders.into_iter().map(|(folder, count)| {
                 error_count += count;
                 folder
             }).collect::<Vec<_>>();
+
+            // process files
             let children = files.into_iter().chain(folders.into_iter()).collect();
+
+            // return the result
             (OneDriveItem::Folder(OneDriveFolder {
                 id: dir_id,
                 name,
@@ -252,43 +306,4 @@ impl OneDriveTreeBuilder {
 
 pub struct OneDriveDriver {
     root: OneDriveFolder,
-}
-
-impl CloudDriver<OnedriveConfig> for OneDriveDriver {
-    fn into_combinable(self) -> CombinableVfsDir {
-        self.root.to_combinable()
-    }
-
-    fn new(config: &OnedriveConfig) -> Pin<Box<
-        dyn Future<Output = Result<Self, String>> + '_ + Send
-    >> {
-        Box::pin(
-        async move {
-            let access_token = match fetch_access_token(config).await {
-                Ok(token) => token,
-                Err(_) => return Err("Failed to fetch access token".to_owned()),
-            };
-            let drive_id = match get_my_od_id(&access_token).await {
-                Ok(id) => id,
-                Err(_) => return Err("Failed to get drive id".to_owned()),
-            };
-            let tree_builder = OneDriveTreeBuilder::new(access_token, drive_id.clone());
-            let root = tree_builder.build_tree(
-                "root".to_owned(),
-                "root".to_owned(),
-                0,
-                SystemTime::now()
-            ).await;
-            let (root, error_count) = root;
-            if error_count > 0 {
-                warn!("{} errors occurred while building the tree {}", error_count, drive_id);
-            }
-            Ok(OneDriveDriver {
-                root: match root {
-                    OneDriveItem::Folder(folder) => folder,
-                    _ => panic!("Unexpected item type"),
-                }
-            })
-        })
-    }
 }

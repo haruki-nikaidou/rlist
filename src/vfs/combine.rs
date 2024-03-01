@@ -14,6 +14,9 @@ pub struct CombinableVfsFile {
 }
 
 #[derive(Clone)]
+/// # VFS Directory
+/// The implement of `VfsDir` trait. As a virtual file system directory, it contains sub directories and files.
+/// `CombinableVfsDir` can be combined with other `CombinableVfsDir` to form a new `CombinableVfsDir`.
 pub struct CombinableVfsDir {
     _name: String,
     _sub_dirs: Vec<CombinableVfsDir>,

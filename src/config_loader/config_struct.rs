@@ -12,9 +12,19 @@ pub struct InfluxConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct OnedriveConfig {
-    pub drive_type: String,     // "onedrive"
+    /// Always "onedrive"
+    pub drive_type: String,
+
+    /// The refresh token for the onedrive account.
+    /// *For further information, please refer to the official documentation of Microsoft OAuth 2.0 authorization flow.*
     pub refresh_token: String,
+
+    /// The client id for the application.
+    /// You can get it from the Azure portal with the client secret.
     pub client_id: String,
+
+    /// The client secret for the application.
+    /// You can get it from the Azure portal with the client id.
     pub client_secret: String,
 }
 
